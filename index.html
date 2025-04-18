@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MogCQs</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .import-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        #questionInput {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+        }
+
+        .quiz-container {
+            display: none;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .question {
+            margin-bottom: 20px;
+        }
+
+        .options button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: white;
+        }
+
+        .correct { background-color: #90EE90 !important; }
+        .incorrect { background-color: #FFB6C1 !important; }
+
+        .explanation {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .progress {
+            margin: 20px 0;
+            height: 10px;
+            background-color: #eee;
+            border-radius: 5px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .result {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MogCQs</h1>
+        <h3>by Mogahid Shabo</h3>
+    </div>
+
+    <div class="import-section">
+        <textarea id="questionInput" placeholder="Paste questions here in format:
+Scenario: [text]
+Stem: [text]
+Options: 
+A) [text]
+B) [text]
+C) [text]
+D) [text]
+Answer: [A/B/C/D]
+Explanation: [text]
+------------------------------"></textarea>
+        <button onclick="importQuestions()">Import Questions (Max 100)</button>
+    </div>
+
+    <div class="quiz-container">
+        <div class="progress">
+            <div class="progress-bar" style="width: 0%"></div>
+        </div>
+        <div class="question"></div>
+        <div class="options"></div>
+        <div class="explanation"></div>
+        <div class="controls">
+            <button onclick="previousQuestion()" id="prevBtn">Previous</button>
+            <button onclick="nextQuestion()" id="nextBtn">Next</button>
+        </div>
+    </div>
+
+    <div class="result">
+        <h2>Your Score: <span id="score"></span>%</h2>
+        <p id="feedback"></p>
+        <button onclick="location.reload()">Try Again</button>
+    </div>
+
+    <script>
+        let questions = [];
+        let currentQuestion = 0;
+        let score = 0;
+
+        function importQuestions() {
+            const input = document.getElementById('questionInput').value;
+            const rawQuestions = input.split('------------------------------');
+            
+            questions = rawQuestions.slice(0, 100).map(q => {
+                const lines = q.split('\n').filter(l => l.trim());
+                return {
+                    scenario: lines[0].replace('Scenario: ', ''),
+                    stem: lines[1].replace('Stem: ', ''),
+                    options: lines.slice(2,6).map(o => o.split(') ')[1]),
+                    answer: lines[6].replace('Answer: ', ''),
+                    explanation: lines[7].replace('Explanation: ', '')
+                };
+            }).filter(q => q.answer);
+
+            document.querySelector('.import-section').style.display = 'none';
+            document.querySelector('.quiz-container').style.display = 'block';
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const q = questions[currentQuestion];
+            document.querySelector('.question').innerHTML = `
+                <h3>${q.scenario}</h3>
+                <p>${q.stem}</p>
+            `;
+
+            const optionsDiv = document.querySelector('.options');
+            optionsDiv.innerHTML = q.options.map((o, i) => `
+                <button onclick="checkAnswer(${i})" data-correct="${String.fromCharCode(65+i) === q.answer}">
+                    ${String.fromCharCode(65+i)}) ${o}
+                </button>
+            `).join('');
+
+            document.querySelector('.progress-bar').style.width = 
+                `${(currentQuestion+1)/questions.length*100}%`;
+            
+            document.getElementById('prevBtn').disabled = currentQuestion === 0;
+            document.getElementById('nextBtn').disabled = currentQuestion === questions.length-1;
+        }
+
+        function checkAnswer(selectedIndex) {
+            const buttons = document.querySelectorAll('.options button');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                if (btn.dataset.correct === 'true') {
+                    btn.classList.add('correct');
+                }
+                if (btn === buttons[selectedIndex] && btn.dataset.correct === 'false') {
+                    btn.classList.add('incorrect');
+                }
+            });
+
+            if (buttons[selectedIndex].dataset.correct === 'true') score++;
+            
+            document.querySelector('.explanation').innerHTML = 
+                `<strong>Explanation:</strong> ${questions[currentQuestion].explanation}`;
+            document.querySelector('.explanation').style.display = 'block';
+        }
+
+        function previousQuestion() {
+            currentQuestion--;
+            resetQuestionState();
+            showQuestion();
+        }
+
+        function nextQuestion() {
+            currentQuestion++;
+            resetQuestionState();
+            showQuestion();
+        }
+
+        function resetQuestionState() {
+            document.querySelector('.explanation').style.display = 'none';
+            if (currentQuestion === questions.length) showResult();
+        }
+
+        function showResult() {
+            document.querySelector('.quiz-container').style.display = 'none';
+            const percentage = Math.round((score/questions.length)*100);
+            document.getElementById('score').textContent = percentage;
+            
+            let feedback = '';
+            if (percentage >= 90) feedback = "You did a great job 👍, you are excellent!";
+            else if (percentage >= 70) feedback = "Good work! Keep practicing to perfect your skills!";
+            else feedback = "You need to improve. Review the explanations and try again!";
+            
+            document.getElementById('feedback').textContent = feedback;
+            document.querySelector('.result').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
